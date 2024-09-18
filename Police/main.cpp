@@ -1,5 +1,7 @@
+#define _CRT_SECURE_NO_WARNINGS
 #pragma warning (disable: 4326)
 #include<iostream>
+#include<fstream>
 #include<string>
 #include<conio.h>
 #include<map>
@@ -36,7 +38,7 @@ class Crime	// Преступления
 	//std::string license_plate;	//Правонарушитель
 	int id;						//Нарушение
 	std::string place;			//Место нарушения
-	std::string time;			//Время нарушения
+	tm time;			//Время нарушения
 public:
 	/* std::string& get_license_plate()const
 	{
@@ -54,10 +56,17 @@ public:
 	{
 		return place;
 	}
-	const std::string& get_time()const
-	{
-		return time;
+	const std::string get_time()const
+	{	
+		/*std::string result = asctime(&time);
+		result.pop_back();
+		return result;*/
+		const int SIZE = 256;
+		char formated[SIZE]{};
+		strftime(formated, SIZE, "%R %e.%m.%Y", &time);
+		return formated;
 	}
+	
 
 	/*void set_license_plate(const std::string& licence_plate)
 	{
@@ -73,13 +82,35 @@ public:
 	}
 	void set_time(const std::string& time)
 	{
-		this->time = time;
+		//1) создаем временную строку для того чтобы пропарсить полученную строку
+		char* time_buffer = new char[time.size() + 1] {};
+		//копируем полученную строку в буфер
+		strcpy(time_buffer, time.c_str());
+
+		int time_elements[5]{};
+		int i = 0;
+		char delimiters[] = ":./ ";
+			for (char* pch = strtok(time_buffer, delimiters); pch; pch = strtok(NULL, delimiters))
+				time_elements[i++] = std::atoi(pch);
+				//функция atoi преобразует строку в число
+		delete[] time_buffer;
+
+		//сочраняем элементы времени в структуру tm
+
+		this->time.tm_hour = time_elements[0];
+		this->time.tm_min  = time_elements[1];
+		this->time.tm_mday = time_elements[2];
+		this->time.tm_mon  = time_elements[3];
+		this->time.tm_year = time_elements[4]-1900;
+
+		//this->time = time;
 	}
 
 	//																Constructors://////////////////////////////////////////////////////////////////////
 
 	Crime(int violation_id, const std::string& place, const std::string& time)
 	{
+		this->time = {};
 		set_violation_id(violation_id);
 		set_place(place);
 		set_time(time);
@@ -101,6 +132,8 @@ std::ostream& operator<<(std::ostream& os, const Crime& obj)
 	return os << obj.get_time() << ":\t" << obj.get_place() << " - " << obj.get_violation();
 }
 		
+void print(const std::map<std::string, std::list<Crime>>& base);
+void save(const std::map<std::string, std::list<Crime>>& base,const std::string& filename);
 
 void main()
 {
@@ -111,18 +144,42 @@ void main()
 
 	std::map<std::string, std::list<Crime>> base =
 	{
-		{"a777bb",{Crime(1,"ул.Ленина", "18:10 1.09.2024"),       Crime(2,"пл.Свободы","12:25 20.08.2024")}},
-		{"a000bb",{Crime(6,"ул.Космонавтов", "17:50 1.08.2024"),  Crime(8,"пл.Космонавтов","17:45 01.08.2024")}},
+		{"a777bb",{Crime(1, "ул.Ленина",       "18:10 1.09.2024"),Crime(2,"пл.Свободы",      "12:25 20.08.2024")}},
+		{"a000bb",{Crime(6, "ул.Космонавтов",  "17:50 1.08.2024"),Crime(8,"пл.Космонавтов",  "17:45 01.08.2024")}},
 		{"a001aa",{Crime(10,"ул.Пролетарская", "21:50 1.08.2024"),Crime(9,"ул.Пролетарская", "21:50 1.08.2024"), Crime(11,"ул.Пролетарская", "21:50 1.08.2024"),Crime(12,"ул.Пролетарская", "22:05 1.08.2024")}},
 	};
+	print(base);
+	save(base,"base.txt");
+}
+
+void print(const std::map<std::string, std::list<Crime>>& base)
+{
 	cout << delimiter << endl;
-	for (std::map<std::string, std::list<Crime>>::iterator map_it = base.begin(); map_it != base.end(); ++map_it)
+	for (std::map<std::string, std::list<Crime>>::const_iterator map_it = base.begin(); map_it != base.end(); ++map_it)
 	{
 		cout << map_it->first << ":\n";
-		for (std::list<Crime>::iterator it = map_it->second.begin(); it != map_it->second.end(); ++it)
+		for (std::list<Crime>::const_iterator it = map_it->second.begin(); it != map_it->second.end(); ++it)
 		{
 			cout << "\t" << *it << endl;
 		}
 		cout << delimiter << endl;
 	}
+}
+
+void save(const std::map<std::string, std::list<Crime>>& base, const std::string& filename)
+{
+	std::ofstream fout(filename);
+	fout << delimiter << endl;
+	for (std::map<std::string, std::list<Crime>>::const_iterator map_it = base.begin(); map_it != base.end(); ++map_it)
+	{
+		fout << map_it->first << ":\n";
+		for (std::list<Crime>::const_iterator it = map_it->second.begin(); it != map_it->second.end(); ++it)
+		{
+			fout << "\t" << *it << endl;
+		}
+		fout << delimiter << endl;
+	}
+	fout.close();
+	std::string command = "notepad " + filename;
+	system(command.c_str());
 }
